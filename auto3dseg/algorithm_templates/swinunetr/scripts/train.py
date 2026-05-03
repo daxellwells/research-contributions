@@ -662,7 +662,7 @@ def run(config_file: Optional[Union[str, Sequence[str]]] = None, **override):
                             if metric[2 * _c + 1] != 0:
                                 avg_metric += metric[2 * _c] / metric[2 * _c + 1]
                                 count +=1
-                        avg_metric = avg_metric / float(count)
+                        avg_metric = avg_metric / float(count) if count > 0 else float('nan')
                         logger.debug(f"Avg_metric: {avg_metric}")
 
                         writer.add_scalar("val/acc", avg_metric, epoch)
@@ -815,7 +815,7 @@ def run(config_file: Optional[Union[str, Sequence[str]]] = None, **override):
                         if metric[2 * _c + 1] != 0:
                             avg_metric += metric[2 * _c] / metric[2 * _c + 1]
                             count += 1
-                    avg_metric = avg_metric / float(count)
+                    avg_metric = avg_metric / float(count) if count > 0 else float('nan')
                     logger.debug(f"Avg_metric at original resolution: {avg_metric}")
 
                     with open(os.path.join(ckpt_path, "progress.yaml"), "r") as out_file:
