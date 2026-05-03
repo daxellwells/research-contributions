@@ -640,21 +640,17 @@ def run(config_file: Optional[Union[str, Sequence[str]]] = None, **override):
                     metric = metric.tolist()
                     if torch.cuda.device_count() == 1 or dist.get_rank() == 0:
                         for _c in range(metric_dim):
+                            class_metric = metric[2 * _c] / metric[2 * _c + 1] if metric[2 * _c + 1] != 0 else float('nan')
                             if metric[2 * _c +1] == 0:
-                                logger.debug(f"Warning: class {_c + 1} has no samples in validation fold, skipping.")
-                            logger.debug(f"Evaluation metric - class {_c + 1}: {metric[2 * _c] / metric[2 * _c + 1] if metric[2 * _c + 1] != 0 else float('nan')}")
-                            try:
-                                writer.add_scalar(
-                                    f"val_class/acc_{class_names[_c]}", metric[2 * _c] / metric[2 * _c + 1]if metric[2 * _c + 1] != 0 else float('nan'), epoch
-                                )
-                                mlflow.log_metric(
-                                    f"val_class/acc_{class_names[_c]}", metric[2 * _c] / metric[2 * _c + 1]if metric[2 * _c + 1] != 0 else float('nan'), step=epoch
-                                )
-                            except BaseException:
-                                writer.add_scalar(f"val_class/acc_{_c}", metric[2 * _c] / metric[2 * _c + 1]if metric[2 * _c + 1] != 0 else float('nan'), epoch)
-                                mlflow.log_metric(
-                                    f"val_class/acc_{_c}", metric[2 * _c] / metric[2 * _c + 1]if metric[2 * _c + 1] != 0 else float('nan'), step=epoch
-                                )
+                                logger.warning(f"Class {_c + 1} has no samples in validation fold; logging as NaN.")
+                            logger.debug(f"Evaluation metric - class {_c + 1}: {class_metric}")
+                            if not math.isnan(class_metric):
+                                try:
+                                    writer.add_scalar(f"val_class/acc_{class_names[_c]}", class_metric, epoch)
+                                    mlflow.log_metric(f"val_class/acc_{class_names[_c]}", class_metric, step=epoch)
+                                except BaseException:
+                                    writer.add_scalar(f"val_class/acc_{_c}", class_metric, epoch)
+                                    mlflow.log_metric(f"val_class/acc_{_c}", class_metric, step=epoch)
 
                         avg_metric = 0
                         count = 0
@@ -665,8 +661,9 @@ def run(config_file: Optional[Union[str, Sequence[str]]] = None, **override):
                         avg_metric = avg_metric / float(count) if count > 0 else float('nan')
                         logger.debug(f"Avg_metric: {avg_metric}")
 
-                        writer.add_scalar("val/acc", avg_metric, epoch)
-                        mlflow.log_metric("val/acc", avg_metric, step=epoch)
+                        if not math.isnan(avg_metric):
+                            writer.add_scalar("val/acc", avg_metric, epoch)
+                            mlflow.log_metric("val/acc", avg_metric, step=epoch)
 
                         if avg_metric > best_metric:
                             best_metric = avg_metric
@@ -805,9 +802,10 @@ def run(config_file: Optional[Union[str, Sequence[str]]] = None, **override):
                 metric = metric.tolist()
                 if torch.cuda.device_count() == 1 or dist.get_rank() == 0:
                     for _c in range(metric_dim):
-                        logger.debug(
-                            f"Evaluation metric at original resolution - class {_c + 1}: {metric[2 * _c] / metric[2 * _c + 1] if metric[2 * _c + 1] != 0 else float('nan')}"
-                        )
+                        class_metric = metric[2 * _c] / metric[2 * _c + 1] if metric[2 * _c + 1] != 0 else float('nan')
+                        if metric[2 * _c + 1] == 0:
+                            logger.warning(f"Class {_c + 1} has no samples in validation fold; logging as NaN.")
+                        logger.debug(f"Evaluation metric at original resolution - class {_c + 1}: {class_metric}")
 
                     avg_metric = 0
                     count = 0
