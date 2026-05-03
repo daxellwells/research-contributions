@@ -696,7 +696,7 @@ def run(config_file: Optional[Union[str, Sequence[str]]] = None, **override):
                                 )
                             )
 
-                        if es:
+                        if es and not math.isnan(avg_metric):
                             early_stopping(val_acc=avg_metric)
                             stop_train = torch.tensor(early_stopping.early_stop).to(device)
 
@@ -819,13 +819,14 @@ def run(config_file: Optional[Union[str, Sequence[str]]] = None, **override):
                     with open(os.path.join(ckpt_path, "progress.yaml"), "r") as out_file:
                         progress = yaml.safe_load(out_file)
 
-                    dict_file = {}
-                    dict_file["best_avg_dice_score"] = float(avg_metric)
-                    dict_file["best_avg_dice_score_epoch"] = int(progress[-1]["best_avg_dice_score_epoch"])
-                    dict_file["best_avg_dice_score_iteration"] = int(progress[-1]["best_avg_dice_score_iteration"])
-                    dict_file["inverted_best_validation"] = True
-                    with open(os.path.join(ckpt_path, "progress.yaml"), "a") as out_file:
-                        yaml.dump([dict_file], stream=out_file)
+                    if not math.isnan(avg_metric):
+                        dict_file = {}
+                        dict_file["best_avg_dice_score"] = float(avg_metric)
+                        dict_file["best_avg_dice_score_epoch"] = int(progress[-1]["best_avg_dice_score_epoch"])
+                        dict_file["best_avg_dice_score_iteration"] = int(progress[-1]["best_avg_dice_score_iteration"])
+                        dict_file["inverted_best_validation"] = True
+                        with open(os.path.join(ckpt_path, "progress.yaml"), "a") as out_file:
+                            yaml.dump([dict_file], stream=out_file)
 
                 if torch.cuda.device_count() > 1:
                     dist.barrier()
