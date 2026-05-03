@@ -640,24 +640,29 @@ def run(config_file: Optional[Union[str, Sequence[str]]] = None, **override):
                     metric = metric.tolist()
                     if torch.cuda.device_count() == 1 or dist.get_rank() == 0:
                         for _c in range(metric_dim):
-                            logger.debug(f"Evaluation metric - class {_c + 1}: {metric[2 * _c] / metric[2 * _c + 1]}")
+                            if metric[2 * _c +1] == 0:
+                                logger.debug(f"Warning: class {_c + 1} has no samples in validation fold, skipping.")
+                            logger.debug(f"Evaluation metric - class {_c + 1}: {metric[2 * _c] / metric[2 * _c + 1] if metric[2 * _c + 1] != 0 else float('nan')}")
                             try:
                                 writer.add_scalar(
-                                    f"val_class/acc_{class_names[_c]}", metric[2 * _c] / metric[2 * _c + 1], epoch
+                                    f"val_class/acc_{class_names[_c]}", metric[2 * _c] / metric[2 * _c + 1]if metric[2 * _c + 1] != 0 else float('nan'), epoch
                                 )
                                 mlflow.log_metric(
-                                    f"val_class/acc_{class_names[_c]}", metric[2 * _c] / metric[2 * _c + 1], step=epoch
+                                    f"val_class/acc_{class_names[_c]}", metric[2 * _c] / metric[2 * _c + 1]if metric[2 * _c + 1] != 0 else float('nan'), step=epoch
                                 )
                             except BaseException:
-                                writer.add_scalar(f"val_class/acc_{_c}", metric[2 * _c] / metric[2 * _c + 1], epoch)
+                                writer.add_scalar(f"val_class/acc_{_c}", metric[2 * _c] / metric[2 * _c + 1]if metric[2 * _c + 1] != 0 else float('nan'), epoch)
                                 mlflow.log_metric(
-                                    f"val_class/acc_{_c}", metric[2 * _c] / metric[2 * _c + 1], step=epoch
+                                    f"val_class/acc_{_c}", metric[2 * _c] / metric[2 * _c + 1]if metric[2 * _c + 1] != 0 else float('nan'), step=epoch
                                 )
 
                         avg_metric = 0
+                        count = 0
                         for _c in range(metric_dim):
-                            avg_metric += metric[2 * _c] / metric[2 * _c + 1]
-                        avg_metric = avg_metric / float(metric_dim)
+                            if metric[2 * _c + 1] != 0:
+                                avg_metric += metric[2 * _c] / metric[2 * _c + 1]
+                                count +=1
+                        avg_metric = avg_metric / float(count)
                         logger.debug(f"Avg_metric: {avg_metric}")
 
                         writer.add_scalar("val/acc", avg_metric, epoch)
@@ -801,13 +806,16 @@ def run(config_file: Optional[Union[str, Sequence[str]]] = None, **override):
                 if torch.cuda.device_count() == 1 or dist.get_rank() == 0:
                     for _c in range(metric_dim):
                         logger.debug(
-                            f"Evaluation metric at original resolution - class {_c + 1}: {metric[2 * _c] / metric[2 * _c + 1]}"
+                            f"Evaluation metric at original resolution - class {_c + 1}: {metric[2 * _c] / metric[2 * _c + 1] if metric[2 * _c + 1] != 0 else float('nan')}"
                         )
 
                     avg_metric = 0
+                    count = 0
                     for _c in range(metric_dim):
-                        avg_metric += metric[2 * _c] / metric[2 * _c + 1]
-                    avg_metric = avg_metric / float(metric_dim)
+                        if metric[2 * _c + 1] != 0:
+                            avg_metric += metric[2 * _c] / metric[2 * _c + 1]
+                            count += 1
+                    avg_metric = avg_metric / float(count)
                     logger.debug(f"Avg_metric at original resolution: {avg_metric}")
 
                     with open(os.path.join(ckpt_path, "progress.yaml"), "r") as out_file:
